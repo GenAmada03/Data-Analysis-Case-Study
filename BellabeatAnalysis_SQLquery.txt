@@ -1,0 +1,127 @@
+--1 Check how many unique users through ID
+SELECT COUNT(DISTINCT(Id)) FROM `first-projects-440706.Fitbit_Fitness_Tracker_Data.DailyActivity_4_5`;
+SELECT COUNT(DISTINCT(Id)) FROM `first-projects-440706.Fitbit_Fitness_Tracker_Data.4_5WeightLogInfo`;
+SELECT COUNT(DISTINCT(Id)) FROM `first-projects-440706.Fitbit_Fitness_Tracker_Data.4_5_sleepDay`;
+SELECT COUNT(DISTINCT(Id)) FROM `first-projects-440706.Fitbit_Fitness_Tracker_Data.4_5_hourlyIntensities`;
+
+--2 Count how many days each users logged in their information
+SELECT Id, COUNT(ActivityDate) AS AD
+FROM `first-projects-440706.Fitbit_Fitness_Tracker_Data.DailyActivity_4_5`
+GROUP BY Id
+;
+
+--3 Narrow down the sample size of users which have consistent numbers of logged days
+SELECT *
+FROM 
+    (SELECT DISTINCT(Id), COUNT(ActivityDate) AS AD
+    FROM `first-projects-440706.Fitbit_Fitness_Tracker_Data.DailyActivity_4_5`
+    GROUP BY Id
+    HAVING AD >= 30) AS DA1
+JOIN `first-projects-440706.Fitbit_Fitness_Tracker_Data.DailyActivity_4_5` AS DA_45 
+ON DA1.Id = DA_45.Id
+WHERE ActivityDate BETWEEN DATE '2016-04-12' AND DATE '2016-05-11';
+
+SELECT DA_45.Id, COUNT(DA_45.ActivityDate) AS num_of_dates
+  FROM 
+     (SELECT DISTINCT(Id), COUNT(ActivityDate) AS logcountAD
+     FROM `first-projects-440706.Fitbit_Fitness_Tracker_Data.DailyActivity_4_5`
+     GROUP BY Id
+     HAVING logcountAD >= 30) AS DA1
+   JOIN `first-projects-440706.Fitbit_Fitness_Tracker_Data.DailyActivity_4_5` AS DA_45 
+  ON DA1.Id = DA_45.Id
+  WHERE ActivityDate BETWEEN DATE '2016-04-12' AND DATE '2016-05-11'
+  GROUP BY DA_45.Id
+;
+
+
+--4 Making the table of daily activity with users logged daily from March 12 to April 11, 2016 
+SELECT *
+FROM (SELECT DISTINCT(Id), COUNT(ActivityDate) AS AD
+    FROM `first-projects-440706.Fitbit_Fitness_Tracker_Data.DailyActivity_4_5`
+    GROUP BY Id 
+    HAVING AD >= 30) AS DA_4501
+JOIN `first-projects-440706.Fitbit_Fitness_Tracker_Data.DailyActivity_4_5` AS DA_45
+ON DA_4501.Id = DA_45.Id
+WHERE ActivityDate BETWEEN DATE '2016-04-12' AND DATE '2016-05-11';
+
+--5 Checking for user's missing values for BMI in table Weigh Log Info 
+SELECT *
+FROM `first-projects-440706.Fitbit_Fitness_Tracker_Data.4_5WeightLogInfo`
+WHERE BMI IS NULL OR BMI < 0
+
+
+--6 Seek relationships by creating tables
+
+--6.1 BMI_category
+SELECT ID, AVG(BMI) AS AVG_BMI
+FROM `first-projects-440706.Fitbit_Fitness_Tracker_Data.4_5WeightLogInfo`
+GROUP BY ID
+ORDER BY AVG_BMI ASC;
+
+--6.2 
+—“Activity intensity vs time of the day" table
+SELECT
+Id,
+Date,
+right(ActivityHour, (length(ActivityHour) - strpos(ActivityHour,' '))) AS Time,
+TotalIntensity,
+Avg_Intensity
+FROM `first-projects-440706.Fitbit_Fitness_Tracker_Data.4_5_hourlyIntensities` ;
+
+--6.3 
+--Total time asleep distribution
+SELECT Id, 
+SleepDay, 
+TotalMinutesAsleep,
+ROUND( (TotalMinutesAsleep/60) ,2 ) AS Ts
+FROM `first-projects-440706.Fitbit_Fitness_Tracker_Data.4_5_sleepDay`;
+
+--6.4 Activeness distribution
+WITH `first-projects-440706.Fitbit_Fitness_Tracker_Data.D_DA` AS
+        (SELECT  
+            CONCAT(DA_45.Id,ActivityDate) AS CONCAT_DA,
+            DA_45.Id AS user_ID, 
+            ActivityDate, 
+            TotalSteps,
+            TotalDistance,
+            TrackerDistance, 
+            LoggedActivitiesDistance,
+            VeryActiveDistance,
+            ModeratelyActiveDistance, 
+            LightActiveDistance,
+            SedentaryActiveDistance,
+            VeryActiveMinutes,
+            FairlyActiveMinutes,
+            LightlyActiveMinutes,
+            SedentaryMinutes,
+            Calories
+            FROM (SELECT DISTINCT(Id), COUNT(ActivityDate) AS AD
+                FROM `first-projects-440706.Fitbit_Fitness_Tracker_Data.DailyActivity_4_5`
+                GROUP BY Id 
+                HAVING AD >= 30) AS DA_4501
+            JOIN `first-projects-440706.Fitbit_Fitness_Tracker_Data.DailyActivity_4_5` AS DA_45
+            ON DA_4501.Id = DA_45.Id
+            WHERE ActivityDate BETWEEN DATE '2016-04-12' AND DATE '2016-05-11'), 
+   `first-projects-440706.Fitbit_Fitness_Tracker_Data.D_S` AS  
+        (SELECT CONCAT(Id,SleepDay) AS CONCAT_S, *
+            FROM `first-projects-440706.Fitbit_Fitness_Tracker_Data.4_5_sleepDay`)   
+
+SELECT 
+    D.CONCAT_DA,
+    D.user_ID, 
+    S.Id,
+    D.ActivityDate,
+    S.SleepDay,
+    S.TotalMinutesAsleep,
+    D.VeryActiveMinutes,
+    D.FairlyActiveMinutes,
+    D.LightlyActiveMinutes,
+    D.SedentaryMinutes,
+FROM `first-projects-440706.Fitbit_Fitness_Tracker_Data.D_DA` AS D
+LEFT JOIN `first-projects-440706.Fitbit_Fitness_Tracker_Data.D_S` AS S
+ON   D.CONCAT_DA = S.CONCAT_S
+;
+
+
+
+
